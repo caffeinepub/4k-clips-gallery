@@ -56,6 +56,29 @@ export function useAddClip() {
   });
 }
 
+export function useAddClipFromUrl() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      title,
+      caption,
+      url,
+    }: {
+      title: string;
+      caption: string;
+      url: string;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      const id = crypto.randomUUID();
+      await actor.addVideoClipFromUrl(id, title, caption, url);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clips"] });
+    },
+  });
+}
+
 export function useDeleteClip() {
   const { actor } = useActor();
   const queryClient = useQueryClient();

@@ -30,8 +30,9 @@ export const Time = IDL.Int;
 export const VideoClip = IDL.Record({
   'id' : IDL.Text,
   'title' : IDL.Text,
-  'videoBlob' : ExternalBlob,
+  'videoBlob' : IDL.Opt(ExternalBlob),
   'caption' : IDL.Text,
+  'videoUrl' : IDL.Opt(IDL.Text),
   'uploadTime' : Time,
 });
 
@@ -65,6 +66,11 @@ export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addVideoClip' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, ExternalBlob],
+      [],
+      [],
+    ),
+  'addVideoClipFromUrl' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [],
       [],
     ),
@@ -107,8 +113,9 @@ export const idlFactory = ({ IDL }) => {
   const VideoClip = IDL.Record({
     'id' : IDL.Text,
     'title' : IDL.Text,
-    'videoBlob' : ExternalBlob,
+    'videoBlob' : IDL.Opt(ExternalBlob),
     'caption' : IDL.Text,
+    'videoUrl' : IDL.Opt(IDL.Text),
     'uploadTime' : Time,
   });
   
@@ -142,6 +149,11 @@ export const idlFactory = ({ IDL }) => {
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addVideoClip' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, ExternalBlob],
+        [],
+        [],
+      ),
+    'addVideoClipFromUrl' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
         [],
         [],
       ),

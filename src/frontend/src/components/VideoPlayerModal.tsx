@@ -2,6 +2,7 @@ import { Maximize, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import type { VideoClip } from "../backend.d";
+import { isYouTubeEmbed } from "../utils/youtube";
 
 interface Props {
   clip: VideoClip | null;
@@ -14,8 +15,11 @@ export default function VideoPlayerModal({ clip, onClose }: Props) {
   const [muted, setMuted] = useState(false);
   const [showCaption, setShowCaption] = useState(true);
 
+  const videoUrl = clip?.videoUrl ?? clip?.videoBlob?.getDirectURL() ?? "";
+  const isYT = isYouTubeEmbed(videoUrl);
+
   useEffect(() => {
-    if (clip && videoRef.current) {
+    if (clip && videoRef.current && !isYT) {
       videoRef.current.load();
       videoRef.current
         .play()
@@ -28,7 +32,7 @@ export default function VideoPlayerModal({ clip, onClose }: Props) {
       }
       setPlaying(false);
     };
-  }, [clip]);
+  }, [clip, isYT]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -51,8 +55,6 @@ export default function VideoPlayerModal({ clip, onClose }: Props) {
     videoRef.current?.requestFullscreen?.();
   };
 
-  const videoUrl = clip?.videoBlob.getDirectURL() ?? "";
-
   return (
     <AnimatePresence>
       {clip && (
@@ -72,82 +74,95 @@ export default function VideoPlayerModal({ clip, onClose }: Props) {
             transition={{ type: "spring", damping: 28, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Video */}
-            <div className="relative bg-black aspect-video">
-              {/* biome-ignore lint/a11y/useMediaCaption: captions rendered as custom overlay below */}
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                className="w-full h-full object-contain"
-                onEnded={() => setPlaying(false)}
-                playsInline
-              />
-
-              {/* Caption overlay */}
-              <AnimatePresence>
-                {showCaption && clip.caption && (
-                  <motion.div
-                    className="absolute bottom-16 left-0 right-0 flex justify-center px-8"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 6 }}
-                  >
-                    <div className="video-caption-overlay bg-black/75 text-white px-4 py-2 rounded max-w-3xl text-center">
-                      {clip.caption}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Controls bar */}
-              <div className="absolute bottom-0 left-0 right-0 px-4 py-3 flex items-center gap-3 bg-gradient-to-t from-black/80 to-transparent">
-                <button
-                  type="button"
-                  onClick={togglePlay}
-                  className="text-white hover:text-primary transition-colors"
-                  data-ocid="player.toggle"
-                >
-                  {playing ? (
-                    <Pause className="h-5 w-5" />
-                  ) : (
-                    <Play className="h-5 w-5" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleMute}
-                  className="text-white hover:text-primary transition-colors"
-                  data-ocid="player.toggle"
-                >
-                  {muted ? (
-                    <VolumeX className="h-5 w-5" />
-                  ) : (
-                    <Volume2 className="h-5 w-5" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCaption((v) => !v)}
-                  className={`text-xs px-2 py-0.5 rounded border transition-colors ${
-                    showCaption
-                      ? "border-primary text-primary"
-                      : "border-muted-foreground text-muted-foreground"
-                  }`}
-                  data-ocid="player.toggle"
-                >
-                  CC
-                </button>
-                <div className="flex-1" />
-                <button
-                  type="button"
-                  onClick={handleFullscreen}
-                  className="text-white hover:text-primary transition-colors"
-                  data-ocid="player.button"
-                >
-                  <Maximize className="h-4 w-4" />
-                </button>
+            {isYT ? (
+              /* YouTube iframe player — no custom controls */
+              <div className="relative bg-black aspect-video">
+                <iframe
+                  src={`${videoUrl}&autoplay=1`}
+                  className="w-full h-full"
+                  allow="autoplay; fullscreen"
+                  allowFullScreen
+                  title={clip.title}
+                />
               </div>
-            </div>
+            ) : (
+              /* Regular video player */
+              <div className="relative bg-black aspect-video">
+                {/* biome-ignore lint/a11y/useMediaCaption: captions rendered as custom overlay below */}
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  className="w-full h-full object-contain"
+                  onEnded={() => setPlaying(false)}
+                  playsInline
+                />
+
+                {/* Caption overlay */}
+                <AnimatePresence>
+                  {showCaption && clip.caption && (
+                    <motion.div
+                      className="absolute bottom-16 left-0 right-0 flex justify-center px-8"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 6 }}
+                    >
+                      <div className="video-caption-overlay bg-black/75 text-white px-4 py-2 rounded max-w-3xl text-center">
+                        {clip.caption}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Controls bar */}
+                <div className="absolute bottom-0 left-0 right-0 px-4 py-3 flex items-center gap-3 bg-gradient-to-t from-black/80 to-transparent">
+                  <button
+                    type="button"
+                    onClick={togglePlay}
+                    className="text-white hover:text-primary transition-colors"
+                    data-ocid="player.toggle"
+                  >
+                    {playing ? (
+                      <Pause className="h-5 w-5" />
+                    ) : (
+                      <Play className="h-5 w-5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleMute}
+                    className="text-white hover:text-primary transition-colors"
+                    data-ocid="player.toggle"
+                  >
+                    {muted ? (
+                      <VolumeX className="h-5 w-5" />
+                    ) : (
+                      <Volume2 className="h-5 w-5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCaption((v) => !v)}
+                    className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                      showCaption
+                        ? "border-primary text-primary"
+                        : "border-muted-foreground text-muted-foreground"
+                    }`}
+                    data-ocid="player.toggle"
+                  >
+                    CC
+                  </button>
+                  <div className="flex-1" />
+                  <button
+                    type="button"
+                    onClick={handleFullscreen}
+                    className="text-white hover:text-primary transition-colors"
+                    data-ocid="player.button"
+                  >
+                    <Maximize className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Info bar */}
             <div className="bg-card px-5 py-4 flex items-start justify-between gap-4">

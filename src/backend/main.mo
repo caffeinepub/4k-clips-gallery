@@ -4,11 +4,14 @@ import Text "mo:core/Text";
 import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
 
+
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+
+// Use explicit migration
 
 actor {
   include MixinStorage();
@@ -17,14 +20,14 @@ actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // User profile type
+  // User profile type (unchanged)
   public type UserProfile = {
     name : Text;
   };
 
   let userProfiles = Map.empty<Principal, UserProfile>();
 
-  // User profile management
+  // User profile management (unchanged)
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can access profiles");
@@ -46,18 +49,19 @@ actor {
     userProfiles.add(caller, profile);
   };
 
-  // Video clip type
+  // Updated VideoClip type with optional videoBlob and videoUrl
   public type VideoClip = {
     id : Text;
     title : Text;
     caption : Text;
-    videoBlob : Storage.ExternalBlob;
+    videoBlob : ?Storage.ExternalBlob; // Can be null for URL-based clips
+    videoUrl : ?Text; // URL for external video, null for file uploads
     uploadTime : Time.Time;
   };
 
   let clips = Map.empty<Text, VideoClip>();
 
-  // Add a new video clip (Admin only)
+  // Add a new video clip with file upload (Admin only)
   public shared ({ caller }) func addVideoClip(id : Text, title : Text, caption : Text, videoBlob : Storage.ExternalBlob) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can add video clips");
@@ -67,7 +71,26 @@ actor {
       id;
       title;
       caption;
-      videoBlob;
+      videoBlob = ?videoBlob; // Set videoBlob, videoUrl remains null
+      videoUrl = null;
+      uploadTime = Time.now();
+    };
+
+    clips.add(id, clip);
+  };
+
+  // Add a new video clip from URL (Admin only)
+  public shared ({ caller }) func addVideoClipFromUrl(id : Text, title : Text, caption : Text, url : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can add video clips from URLs");
+    };
+
+    let clip : VideoClip = {
+      id;
+      title;
+      caption;
+      videoBlob = null; // No file upload, videoUrl is set
+      videoUrl = ?url;
       uploadTime = Time.now();
     };
 

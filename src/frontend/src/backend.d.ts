@@ -18,8 +18,9 @@ export type Time = bigint;
 export interface VideoClip {
     id: string;
     title: string;
-    videoBlob: ExternalBlob;
+    videoBlob?: ExternalBlob;
     caption: string;
+    videoUrl?: string;
     uploadTime: Time;
 }
 export interface UserProfile {
@@ -32,6 +33,7 @@ export enum UserRole {
 }
 export interface backendInterface {
     addVideoClip(id: string, title: string, caption: string, videoBlob: ExternalBlob): Promise<void>;
+    addVideoClipFromUrl(id: string, title: string, caption: string, url: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteClip(id: string): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;

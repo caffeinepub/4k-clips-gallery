@@ -96,8 +96,9 @@ export interface _CaffeineStorageRefillInformation {
 export interface VideoClip {
     id: string;
     title: string;
-    videoBlob: ExternalBlob;
+    videoBlob?: ExternalBlob;
     caption: string;
+    videoUrl?: string;
     uploadTime: Time;
 }
 export interface _CaffeineStorageCreateCertificateResult {
@@ -125,6 +126,7 @@ export interface backendInterface {
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     addVideoClip(id: string, title: string, caption: string, videoBlob: ExternalBlob): Promise<void>;
+    addVideoClipFromUrl(id: string, title: string, caption: string, url: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteClip(id: string): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -249,6 +251,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async addVideoClipFromUrl(arg0: string, arg1: string, arg2: string, arg3: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addVideoClipFromUrl(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addVideoClipFromUrl(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
     async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
         if (this.processError) {
             try {
@@ -362,7 +378,7 @@ export class Backend implements backendInterface {
         }
     }
 }
-async function from_candid_ExternalBlob_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ExternalBlob): Promise<ExternalBlob> {
+async function from_candid_ExternalBlob_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ExternalBlob): Promise<ExternalBlob> {
     return await _downloadFile(value);
 }
 function from_candid_UserRole_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
@@ -377,6 +393,12 @@ function from_candid__CaffeineStorageRefillResult_n4(_uploadFile: (file: Externa
 function from_candid_opt_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
     return value.length === 0 ? null : value[0];
 }
+async function from_candid_opt_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_ExternalBlob]): Promise<ExternalBlob | null> {
+    return value.length === 0 ? null : await from_candid_ExternalBlob_n18(_uploadFile, _downloadFile, value[0]);
+}
+function from_candid_opt_n19(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [string]): string | null {
+    return value.length === 0 ? null : value[0];
+}
 function from_candid_opt_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [boolean]): boolean | null {
     return value.length === 0 ? null : value[0];
 }
@@ -386,21 +408,24 @@ function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Ar
 async function from_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     id: string;
     title: string;
-    videoBlob: _ExternalBlob;
+    videoBlob: [] | [_ExternalBlob];
     caption: string;
+    videoUrl: [] | [string];
     uploadTime: _Time;
 }): Promise<{
     id: string;
     title: string;
-    videoBlob: ExternalBlob;
+    videoBlob?: ExternalBlob;
     caption: string;
+    videoUrl?: string;
     uploadTime: Time;
 }> {
     return {
         id: value.id,
         title: value.title,
-        videoBlob: await from_candid_ExternalBlob_n17(_uploadFile, _downloadFile, value.videoBlob),
+        videoBlob: record_opt_to_undefined(await from_candid_opt_n17(_uploadFile, _downloadFile, value.videoBlob)),
         caption: value.caption,
+        videoUrl: record_opt_to_undefined(from_candid_opt_n19(_uploadFile, _downloadFile, value.videoUrl)),
         uploadTime: value.uploadTime
     };
 }

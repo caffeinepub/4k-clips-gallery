@@ -3,6 +3,7 @@ import { Clock, Play, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import type { VideoClip } from "../backend.d";
+import { getYouTubeThumbnail, isYouTubeEmbed } from "../utils/youtube";
 
 interface Props {
   clip: VideoClip;
@@ -20,7 +21,8 @@ export default function VideoCard({
   onDelete,
 }: Props) {
   const [hovered, setHovered] = useState(false);
-  const videoUrl = clip.videoBlob.getDirectURL();
+  const videoUrl = clip.videoUrl ?? clip.videoBlob?.getDirectURL() ?? "";
+  const isYT = isYouTubeEmbed(videoUrl);
 
   const formatTime = (time: bigint) => {
     const ms = Number(time / BigInt(1_000_000));
@@ -42,15 +44,24 @@ export default function VideoCard({
       onClick={() => onPlay(clip)}
       data-ocid={`clips.item.${index + 1}`}
     >
-      {/* Thumbnail */}
-      <div className="relative aspect-video bg-muted overflow-hidden">
-        <video
-          src={videoUrl}
-          className="w-full h-full object-cover"
-          preload="metadata"
-          muted
-          playsInline
-        />
+      {/* Thumbnail — 9:16 vertical ratio */}
+      <div className="relative aspect-[9/16] bg-muted overflow-hidden">
+        {isYT ? (
+          <img
+            src={getYouTubeThumbnail(videoUrl)}
+            className="w-full h-full object-cover"
+            alt={clip.title}
+          />
+        ) : (
+          <video
+            src={videoUrl}
+            className="w-full h-full object-cover"
+            preload="metadata"
+            muted
+            playsInline
+          />
+        )}
+
         {/* Play overlay */}
         <div
           className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity duration-200 ${
@@ -64,10 +75,12 @@ export default function VideoCard({
             />
           </div>
         </div>
-        {/* 4K badge */}
+
+        {/* Badge */}
         <div className="absolute top-2 left-2 bg-black/70 text-primary text-[10px] font-bold tracking-widest px-2 py-0.5 rounded">
-          4K
+          {isYT ? "YT" : "4K"}
         </div>
+
         {isAdmin && (
           <Button
             variant="destructive"

@@ -19,8 +19,9 @@ export type UserRole = { 'admin' : null } |
 export interface VideoClip {
   'id' : string,
   'title' : string,
-  'videoBlob' : ExternalBlob,
+  'videoBlob' : [] | [ExternalBlob],
   'caption' : string,
+  'videoUrl' : [] | [string],
   'uploadTime' : Time,
 }
 export interface _CaffeineStorageCreateCertificateResult {
@@ -53,6 +54,10 @@ export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addVideoClip' : ActorMethod<
     [string, string, string, ExternalBlob],
+    undefined
+  >,
+  'addVideoClipFromUrl' : ActorMethod<
+    [string, string, string, string],
     undefined
   >,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
