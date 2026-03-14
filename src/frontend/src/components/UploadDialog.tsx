@@ -2,20 +2,20 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Film, Link, Loader2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { Link, Loader2, Upload } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { AspectRatio } from "../backend";
 import { useAddClip, useAddClipFromUrl } from "../hooks/useQueries";
-import { parseYouTubeId } from "../utils/youtube";
 
 interface Props {
   open: boolean;
@@ -23,449 +23,287 @@ interface Props {
 }
 
 export default function UploadDialog({ open, onClose }: Props) {
-  // Upload File tab state
-  const [title, setTitle] = useState("");
-  const [caption, setCaption] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [tab, setTab] = useState("file");
 
-  // Paste Link tab state
+  // File tab state
+  const [file, setFile] = useState<File | null>(null);
+  const [fileTitle, setFileTitle] = useState("");
+  const [fileCaption, setFileCaption] = useState("");
+  const [fileAspect, setFileAspect] = useState<AspectRatio>(AspectRatio._9_16);
+  const [filePartNum, setFilePartNum] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Link tab state
+  const [linkUrl, setLinkUrl] = useState("");
   const [linkTitle, setLinkTitle] = useState("");
   const [linkCaption, setLinkCaption] = useState("");
-  const [linkUrl, setLinkUrl] = useState("");
-  const [videoDuration, setVideoDuration] = useState(5);
-  const [creatingProgress, setCreatingProgress] = useState<{
-    current: number;
-    total: number;
-  } | null>(null);
+  const [linkAspect, setLinkAspect] = useState<AspectRatio>(AspectRatio._9_16);
+  const [linkPartNum, setLinkPartNum] = useState("");
 
   const addClip = useAddClip();
   const addClipFromUrl = useAddClipFromUrl();
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFile(e.target.files?.[0] ?? null);
-  };
+  const isSubmitting = addClip.isPending || addClipFromUrl.isPending;
 
-  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    setDragging(false);
-    const dropped = e.dataTransfer.files[0];
-    if (dropped?.type.startsWith("video/")) setFile(dropped);
-  };
-
-  const reset = () => {
-    setTitle("");
-    setCaption("");
+  const resetAndClose = () => {
     setFile(null);
-    setProgress(0);
+    setFileTitle("");
+    setFileCaption("");
+    setFileAspect(AspectRatio._9_16);
+    setFilePartNum("");
+    setUploadProgress(0);
+    setLinkUrl("");
     setLinkTitle("");
     setLinkCaption("");
-    setLinkUrl("");
-    setVideoDuration(5);
-    setCreatingProgress(null);
+    setLinkAspect(AspectRatio._9_16);
+    setLinkPartNum("");
+    onClose();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !file) return;
-    const arrayBuffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer) as Uint8Array<ArrayBuffer>;
+  const handleFileSubmit = async () => {
+    if (!file || !fileTitle.trim()) {
+      toast.error("Please provide a title and select a video file.");
+      return;
+    }
     try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const partNumber = filePartNum ? BigInt(filePartNum) : undefined;
       await addClip.mutateAsync({
-        title: title.trim(),
-        caption: caption.trim(),
+        title: fileTitle.trim(),
+        caption: fileCaption.trim(),
+        aspectRatio: fileAspect,
+        partNumber,
         videoBytes: bytes,
-        onProgress: setProgress,
+        onProgress: setUploadProgress,
       });
       toast.success("Clip uploaded successfully!");
-      reset();
-      onClose();
+      resetAndClose();
     } catch {
       toast.error("Upload failed. Please try again.");
     }
   };
 
-  const handleLinkSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!linkTitle.trim() || !linkUrl.trim()) return;
-
-    const youtubeId = parseYouTubeId(linkUrl.trim());
-
+  const handleLinkSubmit = async () => {
+    if (!linkUrl.trim() || !linkTitle.trim()) {
+      toast.error("Please provide a title and a video URL.");
+      return;
+    }
     try {
-      if (youtubeId) {
-        const totalClips = Math.max(1, Math.round(videoDuration));
-        for (let n = 0; n < totalClips; n++) {
-          setCreatingProgress({ current: n + 1, total: totalClips });
-          const embedUrl = `https://www.youtube.com/embed/${youtubeId}?start=${n * 60}&end=${(n + 1) * 60}`;
-          const partTitle =
-            totalClips > 1
-              ? `${linkTitle.trim()} — Part ${n + 1}`
-              : linkTitle.trim();
-          await addClipFromUrl.mutateAsync({
-            title: partTitle,
-            caption: linkCaption.trim(),
-            url: embedUrl,
-          });
-        }
-        toast.success(
-          `${totalClips} clip${totalClips > 1 ? "s" : ""} created successfully!`,
-        );
-      } else {
-        setCreatingProgress({ current: 1, total: 1 });
-        await addClipFromUrl.mutateAsync({
-          title: linkTitle.trim(),
-          caption: linkCaption.trim(),
-          url: linkUrl.trim(),
-        });
-        toast.success("Clip created successfully!");
-      }
-      reset();
-      onClose();
+      const partNumber = linkPartNum ? BigInt(linkPartNum) : undefined;
+      await addClipFromUrl.mutateAsync({
+        title: linkTitle.trim(),
+        caption: linkCaption.trim(),
+        aspectRatio: linkAspect,
+        partNumber,
+        url: linkUrl.trim(),
+      });
+      toast.success("Clip added from link!");
+      resetAndClose();
     } catch {
-      toast.error("Failed to create clip. Please try again.");
-      setCreatingProgress(null);
+      toast.error("Failed to add clip from link.");
     }
   };
 
-  const handleClose = () => {
-    if (!addClip.isPending && !addClipFromUrl.isPending) {
-      reset();
-      onClose();
-    }
-  };
-
-  const isLinkYouTube = !!parseYouTubeId(linkUrl);
-  const isLinkPending = addClipFromUrl.isPending || creatingProgress !== null;
+  const AspectOptions = ({
+    value,
+    onChange,
+  }: { value: AspectRatio; onChange: (v: AspectRatio) => void }) => (
+    <RadioGroup
+      value={value}
+      onValueChange={(v) => onChange(v as AspectRatio)}
+      className="flex gap-4"
+    >
+      {(
+        [
+          { val: AspectRatio._9_16, label: "9:16 Shorts" },
+          { val: AspectRatio._1_1, label: "1:1 Square" },
+          { val: AspectRatio._16_9, label: "16:9 Landscape" },
+        ] as const
+      ).map(({ val, label }) => (
+        <Label
+          key={val}
+          className="flex items-center gap-2 cursor-pointer font-normal text-sm text-muted-foreground"
+        >
+          <RadioGroupItem value={val} data-ocid="upload.radio" />
+          {label}
+        </Label>
+      ))}
+    </RadioGroup>
+  );
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && resetAndClose()}>
       <DialogContent
-        className="bg-card border-border max-w-lg"
+        className="bg-popover border-border max-w-lg"
         data-ocid="upload.dialog"
       >
         <DialogHeader>
-          <DialogTitle className="font-display text-xl text-foreground">
-            Add Clip
+          <DialogTitle className="font-display font-black text-xl">
+            Add New Clip
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="upload" className="mt-2">
-          <TabsList className="w-full bg-muted/60 border border-border mb-5">
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="w-full bg-muted">
             <TabsTrigger
-              value="upload"
-              className="flex-1 gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              value="file"
+              className="flex-1 gap-1.5"
               data-ocid="upload.tab"
             >
-              <Upload className="h-3.5 w-3.5" />
-              Upload File
+              <Upload className="w-3.5 h-3.5" /> Upload File
             </TabsTrigger>
             <TabsTrigger
               value="link"
-              className="flex-1 gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              data-ocid="link.tab"
+              className="flex-1 gap-1.5"
+              data-ocid="upload.tab"
             >
-              <Link className="h-3.5 w-3.5" />
-              Paste Link
+              <Link className="w-3.5 h-3.5" /> Paste Link
             </TabsTrigger>
           </TabsList>
 
-          {/* ── Upload File tab ── */}
-          <TabsContent value="upload">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="clip-title"
-                  className="text-sm text-muted-foreground uppercase tracking-wider"
-                >
-                  Title
-                </Label>
-                <Input
-                  id="clip-title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter clip title…"
-                  className="bg-input border-border focus:ring-ring"
-                  required
-                  data-ocid="upload.input"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="clip-caption"
-                  className="text-sm text-muted-foreground uppercase tracking-wider"
-                >
-                  Caption / Subtitle
-                </Label>
-                <Textarea
-                  id="clip-caption"
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  placeholder="Enter caption text shown as subtitle…"
-                  rows={3}
-                  className="bg-input border-border focus:ring-ring resize-none"
-                  data-ocid="upload.textarea"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground uppercase tracking-wider block">
-                  Video File (4K supported)
-                </span>
-                <label
-                  htmlFor="clip-video"
-                  className={`block border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                    dragging
-                      ? "border-primary bg-primary/10"
-                      : file
-                        ? "border-primary/60 bg-primary/5"
-                        : "border-border hover:border-primary/40 hover:bg-muted/30"
-                  }`}
-                  onDrop={handleDrop}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragging(true);
-                  }}
-                  onDragLeave={() => setDragging(false)}
-                  data-ocid="upload.dropzone"
-                >
-                  {file ? (
-                    <div className="flex items-center justify-center gap-3 text-primary">
-                      <Film className="h-6 w-6 shrink-0" />
-                      <span className="text-sm font-medium truncate max-w-[220px]">
-                        {file.name}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">
-                        Drop video here or{" "}
-                        <span className="text-primary">click to browse</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground/60">
-                        MP4, MOV, WebM — up to 4K resolution
-                      </p>
-                    </div>
-                  )}
-                </label>
-                <input
-                  ref={fileRef}
-                  id="clip-video"
-                  type="file"
-                  accept="video/*"
-                  onChange={handleFile}
-                  className="sr-only"
-                  data-ocid="upload.upload_button"
-                />
-              </div>
-
-              {addClip.isPending && (
-                <div className="space-y-2" data-ocid="upload.loading_state">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Uploading…</span>
-                    <span>{Math.round(progress)}%</span>
-                  </div>
-                  <Progress value={progress} className="h-1.5" />
+          {/* File Tab */}
+          <TabsContent value="file" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Video File</Label>
+              <Input
+                type="file"
+                accept="video/*"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="cursor-pointer file:mr-3 file:text-xs file:font-semibold file:border-0 file:bg-primary/20 file:text-primary file:px-3 file:py-1 file:rounded-md"
+                data-ocid="upload.input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Title *</Label>
+              <Input
+                placeholder="Enter clip title..."
+                value={fileTitle}
+                onChange={(e) => setFileTitle(e.target.value)}
+                className="bg-background border-border"
+                data-ocid="upload.input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Caption</Label>
+              <Textarea
+                placeholder="Describe your clip..."
+                value={fileCaption}
+                onChange={(e) => setFileCaption(e.target.value)}
+                className="bg-background border-border resize-none"
+                rows={3}
+                data-ocid="upload.textarea"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Aspect Ratio</Label>
+              <AspectOptions value={fileAspect} onChange={setFileAspect} />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">
+                Part Number (optional)
+              </Label>
+              <Input
+                type="number"
+                placeholder="e.g. 1"
+                value={filePartNum}
+                onChange={(e) => setFilePartNum(e.target.value)}
+                className="bg-background border-border w-24"
+                data-ocid="upload.input"
+              />
+            </div>
+            {addClip.isPending && (
+              <div className="space-y-1" data-ocid="upload.loading_state">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Uploading...</span>
+                  <span>{uploadProgress}%</span>
                 </div>
+                <Progress value={uploadProgress} className="h-1.5" />
+              </div>
+            )}
+            <Button
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+              onClick={handleFileSubmit}
+              disabled={isSubmitting}
+              data-ocid="upload.submit_button"
+            >
+              {addClip.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" /> Upload Clip
+                </>
               )}
-
-              <DialogFooter className="gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleClose}
-                  disabled={addClip.isPending}
-                  className="border-border"
-                  data-ocid="upload.cancel_button"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={addClip.isPending || !title.trim() || !file}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
-                  data-ocid="upload.submit_button"
-                >
-                  {addClip.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Uploading…
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4" /> Upload Clip
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
+            </Button>
           </TabsContent>
 
-          {/* ── Paste Link tab ── */}
-          <TabsContent value="link">
-            <form onSubmit={handleLinkSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="link-title"
-                  className="text-sm text-muted-foreground uppercase tracking-wider"
-                >
-                  Title
-                </Label>
-                <Input
-                  id="link-title"
-                  value={linkTitle}
-                  onChange={(e) => setLinkTitle(e.target.value)}
-                  placeholder="Enter clip title…"
-                  className="bg-input border-border focus:ring-ring"
-                  required
-                  data-ocid="link.input"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="link-caption"
-                  className="text-sm text-muted-foreground uppercase tracking-wider"
-                >
-                  Caption / Subtitle
-                </Label>
-                <Textarea
-                  id="link-caption"
-                  value={linkCaption}
-                  onChange={(e) => setLinkCaption(e.target.value)}
-                  placeholder="Enter caption text shown as subtitle…"
-                  rows={2}
-                  className="bg-input border-border focus:ring-ring resize-none"
-                  data-ocid="link.textarea"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="link-url"
-                  className="text-sm text-muted-foreground uppercase tracking-wider"
-                >
-                  Video URL
-                </Label>
-                <div className="relative">
-                  <Link className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <Input
-                    id="link-url"
-                    value={linkUrl}
-                    onChange={(e) => setLinkUrl(e.target.value)}
-                    placeholder="Paste YouTube or video URL…"
-                    className="bg-input border-border focus:ring-ring pl-9"
-                    required
-                    data-ocid="link.input"
-                  />
-                </div>
-                {isLinkYouTube && (
-                  <p className="text-xs text-primary flex items-center gap-1.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary" />
-                    YouTube link detected — will create 1-minute clips
-                  </p>
-                )}
-              </div>
-
-              {isLinkYouTube && (
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="link-duration"
-                    className="text-sm text-muted-foreground uppercase tracking-wider"
-                  >
-                    Video duration (minutes)
-                  </Label>
-                  <Input
-                    id="link-duration"
-                    type="number"
-                    min={1}
-                    max={120}
-                    value={videoDuration}
-                    onChange={(e) =>
-                      setVideoDuration(Number(e.target.value) || 1)
-                    }
-                    className="bg-input border-border focus:ring-ring w-32"
-                    data-ocid="link.input"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Creates{" "}
-                    <span className="text-foreground font-medium">
-                      {Math.max(1, Math.round(videoDuration))} clip
-                      {Math.max(1, Math.round(videoDuration)) > 1 ? "s" : ""}
-                    </span>{" "}
-                    of 1 minute each
-                  </p>
-                </div>
+          {/* Link Tab */}
+          <TabsContent value="link" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Video URL *</Label>
+              <Input
+                placeholder="https://youtube.com/watch?v=... or direct .mp4 URL"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                className="bg-background border-border"
+                data-ocid="upload.input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Title *</Label>
+              <Input
+                placeholder="Enter clip title..."
+                value={linkTitle}
+                onChange={(e) => setLinkTitle(e.target.value)}
+                className="bg-background border-border"
+                data-ocid="upload.input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Caption</Label>
+              <Textarea
+                placeholder="Describe your clip..."
+                value={linkCaption}
+                onChange={(e) => setLinkCaption(e.target.value)}
+                className="bg-background border-border resize-none"
+                rows={3}
+                data-ocid="upload.textarea"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Aspect Ratio</Label>
+              <AspectOptions value={linkAspect} onChange={setLinkAspect} />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">
+                Part Number (optional)
+              </Label>
+              <Input
+                type="number"
+                placeholder="e.g. 1"
+                value={linkPartNum}
+                onChange={(e) => setLinkPartNum(e.target.value)}
+                className="bg-background border-border w-24"
+                data-ocid="upload.input"
+              />
+            </div>
+            <Button
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+              onClick={handleLinkSubmit}
+              disabled={isSubmitting}
+              data-ocid="upload.submit_button"
+            >
+              {addClipFromUrl.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Adding...
+                </>
+              ) : (
+                <>
+                  <Link className="w-4 h-4 mr-2" /> Add Clip from Link
+                </>
               )}
-
-              {isLinkPending && creatingProgress && (
-                <div className="space-y-2" data-ocid="link.loading_state">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Creating clip {creatingProgress.current} of{" "}
-                      {creatingProgress.total}…
-                    </span>
-                    <span>
-                      {Math.round(
-                        (creatingProgress.current / creatingProgress.total) *
-                          100,
-                      )}
-                      %
-                    </span>
-                  </div>
-                  <Progress
-                    value={
-                      (creatingProgress.current / creatingProgress.total) * 100
-                    }
-                    className="h-1.5"
-                  />
-                </div>
-              )}
-
-              <DialogFooter className="gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleClose}
-                  disabled={isLinkPending}
-                  className="border-border"
-                  data-ocid="link.cancel_button"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    isLinkPending || !linkTitle.trim() || !linkUrl.trim()
-                  }
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
-                  data-ocid="link.submit_button"
-                >
-                  {isLinkPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {creatingProgress
-                        ? `Creating ${creatingProgress.current}/${creatingProgress.total}…`
-                        : "Creating…"}
-                    </>
-                  ) : (
-                    <>
-                      <Link className="h-4 w-4" />
-                      {isLinkYouTube
-                        ? `Create ${Math.max(1, Math.round(videoDuration))} Clip${
-                            Math.max(1, Math.round(videoDuration)) > 1
-                              ? "s"
-                              : ""
-                          }`
-                        : "Create Clip"}
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
+            </Button>
           </TabsContent>
         </Tabs>
       </DialogContent>

@@ -19,21 +19,33 @@ export const _CaffeineStorageRefillResult = IDL.Record({
   'success' : IDL.Opt(IDL.Bool),
   'topped_up_amount' : IDL.Opt(IDL.Nat),
 });
+export const AspectRatio = IDL.Variant({
+  '_1_1' : IDL.Null,
+  '_16_9' : IDL.Null,
+  '_9_16' : IDL.Null,
+});
 export const ExternalBlob = IDL.Vec(IDL.Nat8);
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
   'guest' : IDL.Null,
 });
+export const AdminStats = IDL.Record({
+  'clipCount' : IDL.Nat,
+  'userCount' : IDL.Nat,
+});
 export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 export const Time = IDL.Int;
 export const VideoClip = IDL.Record({
   'id' : IDL.Text,
   'title' : IDL.Text,
+  'partNumber' : IDL.Opt(IDL.Nat),
   'videoBlob' : IDL.Opt(ExternalBlob),
+  'uploaderPrincipal' : IDL.Principal,
   'caption' : IDL.Text,
   'videoUrl' : IDL.Opt(IDL.Text),
   'uploadTime' : Time,
+  'aspectRatio' : AspectRatio,
 });
 
 export const idlService = IDL.Service({
@@ -65,17 +77,22 @@ export const idlService = IDL.Service({
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addVideoClip' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, ExternalBlob],
-      [],
-      [],
-    ),
-  'addVideoClipFromUrl' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        AspectRatio,
+        IDL.Opt(IDL.Nat),
+        IDL.Opt(ExternalBlob),
+        IDL.Opt(IDL.Text),
+      ],
       [],
       [],
     ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'deleteClip' : IDL.Func([IDL.Text], [], []),
+  'demoteFromAdmin' : IDL.Func([IDL.Principal], [], []),
+  'getAdminStats' : IDL.Func([], [AdminStats], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getUserProfile' : IDL.Func(
@@ -84,7 +101,14 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'listAllUsers' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Tuple(IDL.Principal, UserRole))],
+      ['query'],
+    ),
   'listClips' : IDL.Func([], [IDL.Vec(VideoClip)], ['query']),
+  'listMyClips' : IDL.Func([], [IDL.Vec(VideoClip)], ['query']),
+  'promoteToAdmin' : IDL.Func([IDL.Principal], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
 });
 
@@ -102,21 +126,33 @@ export const idlFactory = ({ IDL }) => {
     'success' : IDL.Opt(IDL.Bool),
     'topped_up_amount' : IDL.Opt(IDL.Nat),
   });
+  const AspectRatio = IDL.Variant({
+    '_1_1' : IDL.Null,
+    '_16_9' : IDL.Null,
+    '_9_16' : IDL.Null,
+  });
   const ExternalBlob = IDL.Vec(IDL.Nat8);
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
     'guest' : IDL.Null,
   });
+  const AdminStats = IDL.Record({
+    'clipCount' : IDL.Nat,
+    'userCount' : IDL.Nat,
+  });
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
   const Time = IDL.Int;
   const VideoClip = IDL.Record({
     'id' : IDL.Text,
     'title' : IDL.Text,
+    'partNumber' : IDL.Opt(IDL.Nat),
     'videoBlob' : IDL.Opt(ExternalBlob),
+    'uploaderPrincipal' : IDL.Principal,
     'caption' : IDL.Text,
     'videoUrl' : IDL.Opt(IDL.Text),
     'uploadTime' : Time,
+    'aspectRatio' : AspectRatio,
   });
   
   return IDL.Service({
@@ -148,17 +184,22 @@ export const idlFactory = ({ IDL }) => {
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addVideoClip' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, ExternalBlob],
-        [],
-        [],
-      ),
-    'addVideoClipFromUrl' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          AspectRatio,
+          IDL.Opt(IDL.Nat),
+          IDL.Opt(ExternalBlob),
+          IDL.Opt(IDL.Text),
+        ],
         [],
         [],
       ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'deleteClip' : IDL.Func([IDL.Text], [], []),
+    'demoteFromAdmin' : IDL.Func([IDL.Principal], [], []),
+    'getAdminStats' : IDL.Func([], [AdminStats], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getUserProfile' : IDL.Func(
@@ -167,7 +208,14 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'listAllUsers' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Tuple(IDL.Principal, UserRole))],
+        ['query'],
+      ),
     'listClips' : IDL.Func([], [IDL.Vec(VideoClip)], ['query']),
+    'listMyClips' : IDL.Func([], [IDL.Vec(VideoClip)], ['query']),
+    'promoteToAdmin' : IDL.Func([IDL.Principal], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   });
 };

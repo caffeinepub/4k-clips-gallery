@@ -1,44 +1,49 @@
-# 4K Clips Gallery — Viral Shorts Redesign
+# Modern Clips
 
 ## Current State
-- Grid gallery layout with horizontal 16:9 aspect ratio cards
-- VideoPlayerModal opens clips in a wide modal with 16:9 aspect ratio
-- Caption shown as a static overlay at the bottom of the video
-- No scroll-based feed or TikTok-style navigation
+A basic video clip gallery (Clip4K) with:
+- Admin-only upload via file or YouTube/MP4 URL
+- Public clip browsing in a 3-column grid
+- Hero section + feature highlights
+- Authorization (admin/user roles) and blob-storage for file uploads
+- Delete clips (admin only)
 
 ## Requested Changes (Diff)
 
 ### Add
-- TikTok/Reels-style full-screen vertical scroll feed (snap scrolling, one clip per screen)
-- 9:16 vertical aspect ratio enforced on all video cards and player
-- Animated word-by-word subtitle captions — bold white text with black outline, centered at bottom of video, phrases cycle across clip duration
-- Auto-caption generation from the clip title — split into short 3-5 word phrases, timed at ~3 seconds per phrase across the 60-second clip
-- "Shorts" feed view as the primary UI replacing the grid
-- Up/down navigation arrows and keyboard arrow key support for moving between clips
-- Clip counter indicator (e.g. 1/5) top-right
-- Mute/unmute button overlay on the player
-- Share-style clip info overlay (title + part number) bottom-left above captions
+- Full SaaS landing page: hero, features grid, how-it-works steps, FAQ accordion, CTA banner
+- Multi-page navigation: Landing, Dashboard (logged-in users), Admin Panel
+- User video uploads: any logged-in user can upload their own videos and create clips
+- Clip metadata: aspect ratio (9:16, 1:1, 16:9), duration estimate, part number
+- User dashboard: lists user's own uploaded videos and generated clips, storage usage
+- Admin panel: user list with roles, total clip/video counts, ability to promote/demote users
+- Clip editor UI: set title, caption, aspect ratio, trim start/end (frontend-only, no server-side processing)
+- Download button on each clip card
+- Modern dark SaaS branding with gradient CTAs, smooth animations
 
 ### Modify
-- App.tsx: Replace grid gallery with vertical snap-scroll shorts feed as primary view. Keep the header/nav/upload flow.
-- VideoCard: Change thumbnail from 16:9 to 9:16, show bold vertical poster style
-- VideoPlayerModal: Replaced by inline full-screen vertical player within the feed
-- Caption system: Replace static caption with animated phrase-cycling system
+- VideoClip type: add aspectRatio, partNumber, uploaderPrincipal fields
+- addVideoClip / addVideoClipFromUrl: open to all authenticated users (not admin-only)
+- listClips: add listMyClips (returns only caller's clips)
+- Nav: add Dashboard and Admin Panel links
 
 ### Remove
-- Grid layout (4-column responsive grid)
-- Wide horizontal modal player
-- Static hero section (replaced by the full-screen feed)
+- Admin-only restriction on adding clips (now any user can add)
 
 ## Implementation Plan
-1. Create `utils/captions.ts` — function to split a title/caption into timed phrase segments for animated subtitles
-2. Create `components/ShortsPlayer.tsx` — full-screen 9:16 vertical video player with:
-   - Inline YouTube iframe or HTML5 video
-   - Animated word/phrase caption overlay (cycles through phrases with fade animation)
-   - Clip info overlay (title, part badge)
-   - Mute toggle, play/pause tap
-   - Up/down navigation between clips
-3. Create `components/ShortsFeed.tsx` — snap-scroll container that renders one ShortsPlayer per clip, full viewport height
-4. Update `App.tsx` — replace grid + hero with ShortsFeed as the main content. Keep header with upload button.
-5. Update `VideoCard.tsx` — change thumbnail aspect to 9:16 for any preview/grid fallback context
-6. Keep UploadDialog and DeleteConfirmDialog unchanged
+1. Extend backend:
+   - Add aspectRatio and partNumber fields to VideoClip
+   - Add uploaderPrincipal to VideoClip
+   - Change addVideoClip/addVideoClipFromUrl to require #user (not #admin)
+   - Add listMyClips() query
+   - Add getAdminStats() returning user count, clip count (admin only)
+   - Add listAllUsers() returning list of principals + roles (admin only)
+   - Add promoteToAdmin / demoteFromAdmin (admin only)
+2. Frontend SaaS overhaul:
+   - Landing page with hero, features, how-it-works, FAQ, pricing-free badge, CTA
+   - React Router or tab-based navigation: Landing / Dashboard / Admin
+   - Dashboard: user's clips grid, upload button, storage info
+   - Admin panel: users table, stats cards
+   - Clip cards: show aspect ratio badge, download button
+   - Upload dialog: add aspect ratio selector, part number field
+   - Modern dark theme with gradient buttons and animated sections

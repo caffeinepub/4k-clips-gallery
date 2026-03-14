@@ -10,6 +10,10 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface AdminStats { 'clipCount' : bigint, 'userCount' : bigint }
+export type AspectRatio = { '_1_1' : null } |
+  { '_16_9' : null } |
+  { '_9_16' : null };
 export type ExternalBlob = Uint8Array;
 export type Time = bigint;
 export interface UserProfile { 'name' : string }
@@ -19,10 +23,13 @@ export type UserRole = { 'admin' : null } |
 export interface VideoClip {
   'id' : string,
   'title' : string,
+  'partNumber' : [] | [bigint],
   'videoBlob' : [] | [ExternalBlob],
+  'uploaderPrincipal' : Principal,
   'caption' : string,
   'videoUrl' : [] | [string],
   'uploadTime' : Time,
+  'aspectRatio' : AspectRatio,
 }
 export interface _CaffeineStorageCreateCertificateResult {
   'method' : string,
@@ -53,20 +60,29 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addVideoClip' : ActorMethod<
-    [string, string, string, ExternalBlob],
-    undefined
-  >,
-  'addVideoClipFromUrl' : ActorMethod<
-    [string, string, string, string],
+    [
+      string,
+      string,
+      string,
+      AspectRatio,
+      [] | [bigint],
+      [] | [ExternalBlob],
+      [] | [string],
+    ],
     undefined
   >,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'deleteClip' : ActorMethod<[string], undefined>,
+  'demoteFromAdmin' : ActorMethod<[Principal], undefined>,
+  'getAdminStats' : ActorMethod<[], AdminStats>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'listAllUsers' : ActorMethod<[], Array<[Principal, UserRole]>>,
   'listClips' : ActorMethod<[], Array<VideoClip>>,
+  'listMyClips' : ActorMethod<[], Array<VideoClip>>,
+  'promoteToAdmin' : ActorMethod<[Principal], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
