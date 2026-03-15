@@ -4,17 +4,14 @@ import Text "mo:core/Text";
 import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
 import Iter "mo:core/Iter";
-
+import Float "mo:core/Float";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
-
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
-import Migration "migration";
 
-// Explicit migration
-(with migration = Migration.run)
+
 actor {
   include MixinStorage();
 
@@ -29,7 +26,7 @@ actor {
 
   let userProfiles = Map.empty<Principal, UserProfile>();
 
-  // User profile management (unchanged)
+  // User profile management
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can access profiles");
@@ -68,6 +65,8 @@ actor {
     aspectRatio : AspectRatio;
     partNumber : ?Nat;
     uploaderPrincipal : Principal;
+    startTime : ?Float;
+    endTime : ?Float;
   };
 
   let clips = Map.empty<Text, VideoClip>();
@@ -81,9 +80,21 @@ actor {
     partNumber : ?Nat,
     videoBlob : ?Storage.ExternalBlob,
     videoUrl : ?Text,
+    startTime : ?Float,
+    endTime : ?Float,
   ) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users or admins can add video clips");
+    };
+
+    // Validate time window if both are present
+    switch (startTime, endTime) {
+      case (?s, ?e) {
+        if (s >= e) {
+          Runtime.trap("Start time must be less than end time");
+        };
+      };
+      case (_) {};
     };
 
     let clip : VideoClip = {
@@ -96,6 +107,8 @@ actor {
       videoUrl;
       uploadTime = Time.now();
       uploaderPrincipal = caller;
+      startTime;
+      endTime;
     };
 
     clips.add(id, clip);
@@ -130,6 +143,21 @@ actor {
       func(clip) { clip.uploaderPrincipal == caller }
     );
     filtered;
+  };
+
+  // Get total clips for a user
+  public query ({ caller }) func getTotalClipsForUser(user : Principal) : async Nat {
+    if (user != caller and not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only self or admin can check clip count");
+    };
+
+    var count = 0;
+    for (clip in clips.values()) {
+      if (clip.uploaderPrincipal == user) {
+        count += 1;
+      };
+    };
+    count;
   };
 
   // Admin stats record
@@ -190,4 +218,3 @@ actor {
     AccessControl.assignRole(accessControlState, caller, user, #user);
   };
 };
-

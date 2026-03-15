@@ -83,6 +83,8 @@ export interface UploadClipParams {
   partNumber?: bigint;
   videoBytes: Uint8Array<ArrayBuffer>;
   onProgress: (pct: number) => void;
+  startTime?: number;
+  endTime?: number;
 }
 
 export function useAddClip() {
@@ -96,6 +98,8 @@ export function useAddClip() {
       partNumber,
       videoBytes,
       onProgress,
+      startTime,
+      endTime,
     }: UploadClipParams) => {
       if (!actor) throw new Error("Not connected");
       const id = crypto.randomUUID();
@@ -109,7 +113,64 @@ export function useAddClip() {
         partNumber ?? null,
         blob,
         null,
+        startTime ?? null,
+        endTime ?? null,
       );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clips"] });
+      queryClient.invalidateQueries({ queryKey: ["myClips"] });
+    },
+  });
+}
+
+export interface ClipSegment {
+  title: string;
+  caption: string;
+  aspectRatio: AspectRatio;
+  partNumber: bigint;
+  startTime: number;
+  endTime: number;
+}
+
+export interface BatchUploadParams {
+  videoBytes: Uint8Array<ArrayBuffer>;
+  segments: ClipSegment[];
+  onProgress: (pct: number) => void;
+  onClipCreated?: (n: number, total: number) => void;
+}
+
+export function useAddClipBatch() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      videoBytes,
+      segments,
+      onProgress,
+      onClipCreated,
+    }: BatchUploadParams) => {
+      if (!actor) throw new Error("Not connected");
+      // Upload the blob once with progress tracking
+      const blob =
+        ExternalBlob.fromBytes(videoBytes).withUploadProgress(onProgress);
+      // Create N clip entries reusing the same blob
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        const id = crypto.randomUUID();
+        await actor.addVideoClip(
+          id,
+          seg.title,
+          seg.caption,
+          seg.aspectRatio,
+          seg.partNumber,
+          blob,
+          null,
+          seg.startTime,
+          seg.endTime,
+        );
+        onClipCreated?.(i + 1, segments.length);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clips"] });
@@ -147,7 +208,54 @@ export function useAddClipFromUrl() {
         partNumber ?? null,
         null,
         url,
+        null,
+        null,
       );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clips"] });
+      queryClient.invalidateQueries({ queryKey: ["myClips"] });
+    },
+  });
+}
+
+export interface UrlClipSegment {
+  title: string;
+  caption: string;
+  aspectRatio: AspectRatio;
+  partNumber: bigint;
+  startTime: number;
+  endTime: number;
+  url: string;
+}
+
+export interface UrlBatchParams {
+  segments: UrlClipSegment[];
+  onClipCreated?: (n: number, total: number) => void;
+}
+
+export function useAddClipFromUrlBatch() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ segments, onClipCreated }: UrlBatchParams) => {
+      if (!actor) throw new Error("Not connected");
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        const id = crypto.randomUUID();
+        await actor.addVideoClip(
+          id,
+          seg.title,
+          seg.caption,
+          seg.aspectRatio,
+          seg.partNumber,
+          null,
+          seg.url,
+          seg.startTime,
+          seg.endTime,
+        );
+        onClipCreated?.(i + 1, segments.length);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clips"] });

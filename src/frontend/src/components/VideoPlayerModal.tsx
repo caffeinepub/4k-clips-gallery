@@ -9,6 +9,17 @@ interface Props {
   onClose: () => void;
 }
 
+function formatClipDuration(
+  startTime?: number,
+  endTime?: number,
+): string | null {
+  if (startTime == null || endTime == null) return null;
+  const secs = endTime - startTime;
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export default function VideoPlayerModal({ clip, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -17,22 +28,46 @@ export default function VideoPlayerModal({ clip, onClose }: Props) {
 
   const videoUrl = clip?.videoUrl ?? clip?.videoBlob?.getDirectURL() ?? "";
   const isYT = isYouTubeEmbed(videoUrl);
+  const clipDuration = formatClipDuration(clip?.startTime, clip?.endTime);
 
   useEffect(() => {
-    if (clip && videoRef.current && !isYT) {
-      videoRef.current.load();
-      videoRef.current
+    if (!clip || !videoRef.current || isYT) return;
+    const video = videoRef.current;
+    video.load();
+
+    const onLoaded = () => {
+      // Seek to startTime if defined
+      if (clip.startTime != null && clip.startTime > 0) {
+        video.currentTime = clip.startTime;
+      }
+      video
         .play()
         .then(() => setPlaying(true))
         .catch(() => {});
-    }
+    };
+    video.addEventListener("loadedmetadata", onLoaded);
     return () => {
-      if (videoRef.current) {
-        videoRef.current.pause();
-      }
+      video.removeEventListener("loadedmetadata", onLoaded);
+      video.pause();
       setPlaying(false);
     };
   }, [clip, isYT]);
+
+  // Enforce endTime boundary
+  useEffect(() => {
+    if (!clip?.endTime || isYT) return;
+    const video = videoRef.current;
+    if (!video) return;
+    const endTime = clip.endTime;
+    const handler = () => {
+      if (video.currentTime >= endTime) {
+        video.pause();
+        setPlaying(false);
+      }
+    };
+    video.addEventListener("timeupdate", handler);
+    return () => video.removeEventListener("timeupdate", handler);
+  }, [clip?.endTime, isYT]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -96,6 +131,13 @@ export default function VideoPlayerModal({ clip, onClose }: Props) {
                   onEnded={() => setPlaying(false)}
                   playsInline
                 />
+
+                {/* Clip duration badge */}
+                {clipDuration && (
+                  <div className="absolute top-3 left-3 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                    <span className="text-primary">◆</span> {clipDuration}
+                  </div>
+                )}
 
                 {/* Caption overlay */}
                 <AnimatePresence>
@@ -166,10 +208,22 @@ export default function VideoPlayerModal({ clip, onClose }: Props) {
 
             {/* Info bar */}
             <div className="bg-card px-5 py-4 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-display text-lg font-bold text-foreground">
-                  {clip.title}
-                </h2>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="font-display text-lg font-bold text-foreground">
+                    {clip.title}
+                  </h2>
+                  {clip.partNumber != null && (
+                    <span className="text-xs bg-primary/20 text-primary font-bold px-2 py-0.5 rounded-full">
+                      Part {Number(clip.partNumber)}
+                    </span>
+                  )}
+                  {clipDuration && (
+                    <span className="text-xs bg-muted text-muted-foreground font-mono px-2 py-0.5 rounded">
+                      {clipDuration}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
                   {clip.caption}
                 </p>

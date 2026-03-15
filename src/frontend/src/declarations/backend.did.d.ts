@@ -22,7 +22,9 @@ export type UserRole = { 'admin' : null } |
   { 'guest' : null };
 export interface VideoClip {
   'id' : string,
+  'startTime' : [] | [number],
   'title' : string,
+  'endTime' : [] | [number],
   'partNumber' : [] | [bigint],
   'videoBlob' : [] | [ExternalBlob],
   'uploaderPrincipal' : Principal,
@@ -68,6 +70,8 @@ export interface _SERVICE {
       [] | [bigint],
       [] | [ExternalBlob],
       [] | [string],
+      [] | [number],
+      [] | [number],
     ],
     undefined
   >,
@@ -77,6 +81,7 @@ export interface _SERVICE {
   'getAdminStats' : ActorMethod<[], AdminStats>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getTotalClipsForUser' : ActorMethod<[Principal], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listAllUsers' : ActorMethod<[], Array<[Principal, UserRole]>>,

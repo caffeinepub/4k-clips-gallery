@@ -15,6 +15,7 @@ interface Props {
   isAdmin: boolean;
   onDelete: (id: string) => void;
   onClose: () => void;
+  onNext?: () => void;
 }
 
 export default function ShortsPlayer({
@@ -23,6 +24,7 @@ export default function ShortsPlayer({
   isAdmin,
   onDelete,
   onClose,
+  onNext,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(false);
@@ -35,22 +37,52 @@ export default function ShortsPlayer({
   const captions: CaptionPhrase[] = generateCaptions(clip.title, clip.caption);
   const activeCaption = getActiveCaptionPhrase(captions, currentSec);
 
-  // Auto-play native video
+  const effectiveStart = clip.startTime ?? 0;
+  const effectiveEnd = clip.endTime ?? null;
+
+  // Auto-play native video, seek to startTime
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    video.play().catch(() => {});
-  }, []);
+    const onLoaded = () => {
+      if (effectiveStart > 0) {
+        video.currentTime = effectiveStart;
+      }
+      video.play().catch(() => {});
+    };
+    video.addEventListener("loadedmetadata", onLoaded);
+    // if already loaded
+    if (video.readyState >= 1) onLoaded();
+    return () => video.removeEventListener("loadedmetadata", onLoaded);
+  }, [effectiveStart]);
 
-  // Track playback time for captions
+  // Enforce endTime — auto-advance to next short
+  useEffect(() => {
+    if (!effectiveEnd || isYT) return;
+    const video = videoRef.current;
+    if (!video) return;
+    const handler = () => {
+      if (video.currentTime >= effectiveEnd) {
+        video.pause();
+        // auto-advance to next clip
+        if (onNext) {
+          onNext();
+        }
+      }
+    };
+    video.addEventListener("timeupdate", handler);
+    return () => video.removeEventListener("timeupdate", handler);
+  }, [effectiveEnd, isYT, onNext]);
+
+  // Track playback time for captions (offset from startTime)
   useEffect(() => {
     if (isYT) return;
     const interval = setInterval(() => {
       const video = videoRef.current;
-      if (video) setCurrentSec(video.currentTime);
+      if (video) setCurrentSec(video.currentTime - effectiveStart);
     }, 250);
     return () => clearInterval(interval);
-  }, [isYT]);
+  }, [isYT, effectiveStart]);
 
   // Simulate time for YouTube
   useEffect(() => {
@@ -80,10 +112,26 @@ export default function ShortsPlayer({
   }, []);
 
   const partMatch = clip.title.match(/[—\-–]\s*Part\s*(\d+)/i);
-  const partNum = partMatch ? partMatch[1] : null;
+  const partNum =
+    clip.partNumber != null
+      ? String(Number(clip.partNumber))
+      : partMatch
+        ? partMatch[1]
+        : null;
   const baseTitle = partMatch
     ? clip.title.replace(partMatch[0], "").trim()
     : clip.title;
+
+  // Clip duration badge
+  const clipDuration =
+    clip.startTime != null && clip.endTime != null
+      ? (() => {
+          const secs = clip.endTime - clip.startTime;
+          const m = Math.floor(secs / 60);
+          const s = Math.floor(secs % 60);
+          return `${m}:${String(s).padStart(2, "0")}`;
+        })()
+      : null;
 
   const ytSrc = `${videoUrl}?autoplay=1&mute=${muted ? 1 : 0}&loop=1&controls=1&playsinline=1&rel=0&modestbranding=1`;
 
@@ -97,7 +145,7 @@ export default function ShortsPlayer({
       onClick={onClose}
       data-ocid={`shorts.item.${index + 1}`}
     >
-      {/* 9:16 Video Container — fixed calculation avoids h-full + aspectRatio conflict */}
+      {/* 9:16 Video Container */}
       <motion.div
         className="relative mx-auto"
         style={{
@@ -125,9 +173,7 @@ export default function ShortsPlayer({
             src={videoUrl}
             className="absolute inset-0 w-full h-full object-cover"
             muted={muted}
-            loop
             playsInline
-            autoPlay
           />
         )}
 
@@ -137,9 +183,15 @@ export default function ShortsPlayer({
           <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
         </div>
 
+        {/* Duration badge */}
+        {clipDuration && (
+          <div className="absolute top-3 left-3 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded z-20">
+            {clipDuration}
+          </div>
+        )}
+
         {/* Controls */}
         <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
-          {/* Close */}
           <button
             type="button"
             className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-black/90 transition-colors"
@@ -150,7 +202,6 @@ export default function ShortsPlayer({
             <X className="w-4 h-4" />
           </button>
 
-          {/* Mute (native video only) */}
           {!isYT && (
             <button
               type="button"

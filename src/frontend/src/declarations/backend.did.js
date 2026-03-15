@@ -38,7 +38,9 @@ export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 export const Time = IDL.Int;
 export const VideoClip = IDL.Record({
   'id' : IDL.Text,
+  'startTime' : IDL.Opt(IDL.Float64),
   'title' : IDL.Text,
+  'endTime' : IDL.Opt(IDL.Float64),
   'partNumber' : IDL.Opt(IDL.Nat),
   'videoBlob' : IDL.Opt(ExternalBlob),
   'uploaderPrincipal' : IDL.Principal,
@@ -85,6 +87,8 @@ export const idlService = IDL.Service({
         IDL.Opt(IDL.Nat),
         IDL.Opt(ExternalBlob),
         IDL.Opt(IDL.Text),
+        IDL.Opt(IDL.Float64),
+        IDL.Opt(IDL.Float64),
       ],
       [],
       [],
@@ -95,6 +99,7 @@ export const idlService = IDL.Service({
   'getAdminStats' : IDL.Func([], [AdminStats], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getTotalClipsForUser' : IDL.Func([IDL.Principal], [IDL.Nat], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -145,7 +150,9 @@ export const idlFactory = ({ IDL }) => {
   const Time = IDL.Int;
   const VideoClip = IDL.Record({
     'id' : IDL.Text,
+    'startTime' : IDL.Opt(IDL.Float64),
     'title' : IDL.Text,
+    'endTime' : IDL.Opt(IDL.Float64),
     'partNumber' : IDL.Opt(IDL.Nat),
     'videoBlob' : IDL.Opt(ExternalBlob),
     'uploaderPrincipal' : IDL.Principal,
@@ -192,6 +199,8 @@ export const idlFactory = ({ IDL }) => {
           IDL.Opt(IDL.Nat),
           IDL.Opt(ExternalBlob),
           IDL.Opt(IDL.Text),
+          IDL.Opt(IDL.Float64),
+          IDL.Opt(IDL.Float64),
         ],
         [],
         [],
@@ -202,6 +211,7 @@ export const idlFactory = ({ IDL }) => {
     'getAdminStats' : IDL.Func([], [AdminStats], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getTotalClipsForUser' : IDL.Func([IDL.Principal], [IDL.Nat], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],

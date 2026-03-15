@@ -21,7 +21,9 @@ export interface AdminStats {
 }
 export interface VideoClip {
     id: string;
+    startTime?: number;
     title: string;
+    endTime?: number;
     partNumber?: bigint;
     videoBlob?: ExternalBlob;
     uploaderPrincipal: Principal;
@@ -44,13 +46,14 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
-    addVideoClip(id: string, title: string, caption: string, aspectRatio: AspectRatio, partNumber: bigint | null, videoBlob: ExternalBlob | null, videoUrl: string | null): Promise<void>;
+    addVideoClip(id: string, title: string, caption: string, aspectRatio: AspectRatio, partNumber: bigint | null, videoBlob: ExternalBlob | null, videoUrl: string | null, startTime: number | null, endTime: number | null): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteClip(id: string): Promise<void>;
     demoteFromAdmin(user: Principal): Promise<void>;
     getAdminStats(): Promise<AdminStats>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getTotalClipsForUser(user: Principal): Promise<bigint>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     listAllUsers(): Promise<Array<[Principal, UserRole]>>;

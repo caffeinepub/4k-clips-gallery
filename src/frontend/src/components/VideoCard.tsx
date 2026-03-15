@@ -33,6 +33,18 @@ export default function VideoCard({
     });
   };
 
+  const clipDuration =
+    clip.startTime != null && clip.endTime != null
+      ? (() => {
+          const secs = clip.endTime - clip.startTime;
+          const m = Math.floor(secs / 60);
+          const s = Math.floor(secs % 60);
+          return `${m}:${String(s).padStart(2, "0")}`;
+        })()
+      : null;
+
+  const partNum = clip.partNumber != null ? Number(clip.partNumber) : null;
+
   return (
     <motion.article
       className="video-card bg-card rounded-xl overflow-hidden border border-border group cursor-pointer"
@@ -76,10 +88,24 @@ export default function VideoCard({
           </div>
         </div>
 
-        {/* Badge */}
-        <div className="absolute top-2 left-2 bg-black/70 text-primary text-[10px] font-bold tracking-widest px-2 py-0.5 rounded">
-          {isYT ? "YT" : "4K"}
+        {/* Top-left badges */}
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
+          <div className="bg-black/70 text-primary text-[10px] font-bold tracking-widest px-2 py-0.5 rounded">
+            {isYT ? "YT" : "4K"}
+          </div>
+          {partNum != null && (
+            <div className="bg-primary/90 text-primary-foreground text-[10px] font-black px-2 py-0.5 rounded tracking-wider uppercase">
+              Part {partNum}
+            </div>
+          )}
         </div>
+
+        {/* Duration badge — bottom right */}
+        {clipDuration && (
+          <div className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
+            {clipDuration}
+          </div>
+        )}
 
         {isAdmin && (
           <Button
